@@ -3,141 +3,287 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telnyx Static Chat Dashboard</title>
+    <title>Google Voice Workspace Console</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 15px; background-color: #121212; display: flex; flex-direction: column; height: 90vh; color: #e0e0e0; }
-        .config-pane { background: #1e1e1e; padding: 15px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-bottom: 15px; border: 1px solid #333; }
-        .config-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .config-row input { flex: 1; padding: 8px; border: 1px solid #444; border-radius: 4px; background-color: #2a2a2a; color: #fff; }
-        .config-row input::placeholder { color: #888; }
-        .chat-window { flex: 1; background: #1e1e1e; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #333; }
-        .messages-container { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #0b141a; }
-        .msg-bubble { max-width: 75%; padding: 10px 14px; border-radius: 8px; font-size: 15px; line-height: 1.4; word-wrap: break-word; }
-        .sent { background-color: #005c4b; color: #e9edef; align-self: flex-end; border-top-right-radius: 0; }
-        .received { background-color: #202c33; color: #e9edef; align-self: flex-start; border-top-left-radius: 0; border: 1px solid #313d45; }
-        .msg-time { font-size: 10px; color: #a6b1b7; text-align: right; margin-top: 4px; }
-        .input-area { display: flex; padding: 10px; background: #222e35; gap: 10px; border-top: 1px solid #313d45; }
-        .input-area textarea { flex: 1; padding: 10px; border: 1px solid #444; border-radius: 4px; resize: none; height: 20px; font-family: inherit; background-color: #2a3942; color: #fff; }
-        .input-area button { background: #7D4698; color: white; border: none; padding: 0 20px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        #status-bar { font-size: 12px; text-align: center; color: #aaa; padding: 8px; background: #2a2a2a; border-radius: 4px; margin-bottom: 10px; border: 1px solid #333; }
+        :root {
+            --bg-main: #131314;
+            --bg-sidebar: #1e1f20;
+            --bg-active: #004a77;
+            --text-main: #e3e3e3;
+            --text-sub: #c4c7c5;
+            --accent: #7a94b8;
+            --border: #444746;
+            --bubble-sent: #004a77;
+            --bubble-received: #282a2c;
+        }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg-main); color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* Top Navigation Header Bar */
+        .gv-header { background: var(--bg-sidebar); padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); height: 48px; z-index: 20; }
+        .gv-logo-section { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 500; color: var(--text-main); }
+        .gv-search-box { flex: 1; max-width: 500px; margin: 0 40px; display: flex; position: relative; }
+        .gv-search-box input { width: 100%; padding: 8px 12px 8px 36px; border-radius: 20px; border: 1px solid var(--border); background-color: var(--bg-main); color: #fff; font-size: 14px; }
+        .gv-search-box::before { content: "🔍"; position: absolute; left: 12px; top: 8px; font-size: 14px; color: var(--text-sub); }
+        .config-inputs { display: flex; gap: 10px; }
+        .config-inputs input { padding: 6px 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-main); color: #fff; font-size: 13px; }
+        .btn-sync { background: var(--accent); color: #131314; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        
+        /* Layout Framework Split */
+        .workspace { display: flex; flex: 1; overflow: hidden; position: relative; }
+        
+        /* Left Panel - Conversation Feed Columns */
+        .gv-sidebar { width: 320px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        .sidebar-action-bar { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+        .btn-new-message { background: #a8c7fa; color: #041e49; border: none; padding: 10px 24px; border-radius: 16px; font-weight: 500; font-size: 14px; cursor: pointer; width: 100%; text-align: center; }
+        .feed-container { flex: 1; overflow-y: auto; }
+        
+        /* Conversation Item Layout */
+        .thread-item { display: flex; align-items: center; padding: 14px 16px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 12px; position: relative; }
+        .thread-item:hover { background-color: rgba(255, 255, 255, 0.04); }
+        .thread-item.active { background-color: rgba(168, 199, 250, 0.14); }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; background: #444746; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; text-transform: uppercase; }
+        .thread-details { flex: 1; min-width: 0; }
+        .thread-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .phone-display { font-size: 14px; font-weight: 500; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .timestamp-display { font-size: 11px; color: var(--text-sub); }
+        .preview-snippet { font-size: 13px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* Right Panel - Active Chat Screen Canvas */
+        .gv-chat-pane { flex: 1; display: flex; flex-direction: column; background: var(--bg-main); position: relative; }
+        .chat-pane-header { padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--bg-sidebar); display: flex; align-items: center; gap: 12px; height: 32px; }
+        .active-contact-title { font-size: 16px; font-weight: 500; }
+        
+        .chat-history { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg-main); }
+        .message-row { display: flex; width: 100%; }
+        .message-row.row-sent { justify-content: flex-end; }
+        .message-row.row-received { justify-content: flex-start; }
+        
+        .bubble { max-width: 60%; padding: 12px 16px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+        .row-sent .bubble { background-color: var(--bubble-sent); color: #fff; border-radius: 18px 18px 0px 18px; }
+        .row-received .bubble { background-color: var(--bubble-received); color: var(--text-main); border-radius: 18px 18px 18px 0px; border: 1px solid var(--border); }
+        .bubble-meta { font-size: 10px; color: var(--text-sub); margin-top: 4px; display: block; text-align: right; }
+        
+        /* Workspace Footer Controls */
+        .gv-input-footer { padding: 16px 24px; background: var(--bg-main); border-top: 1px solid var(--border); }
+        .input-bar-wrapper { display: flex; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 24px; padding: 6px 12px 6px 18px; align-items: center; gap: 10px; }
+        .input-bar-wrapper textarea { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-family: inherit; font-size: 14px; resize: none; height: 20px; line-height: 20px; }
+        .btn-send-svg { background: transparent; border: none; cursor: pointer; color: var(--accent); font-size: 18px; padding: 0 6px; }
+        .btn-send-svg:disabled { color: #555; cursor: default; }
+        
+        #global-status { font-size: 11px; text-align: center; color: var(--text-sub); padding: 4px; background: #2a2a2a; border-top: 1px solid var(--border); }
+        .empty-placeholder { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; color: var(--text-sub); gap: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="config-pane">
-        <div class="config-row">
+    <!-- Main App Top Header Layout -->
+    <div class="gv-header">
+        <div class="gv-logo-section">
+            <span style="font-size:22px;">💬</span> Google Voice Console
+        </div>
+        <div class="gv-search-box">
+            <input type="text" id="searchBar" oninput="filterConversations()" placeholder="Search messages or numbers">
+        </div>
+        <div class="config-inputs">
             <input type="password" id="apiKey" placeholder="Telnyx API Key">
-            <input type="text" id="fromNum" placeholder="Your Telnyx Number (+1...)">
-            <input type="text" id="toNum" placeholder="Recipient Number (+1...)">
-            <button onclick="loadChat()" style="background:#7D4698; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer; font-weight:bold;">Load Chat</button>
+            <input type="text" id="fromNum" placeholder="Your Telnyx Number">
+            <button onclick="connectWorkspace()" class="btn-sync">Connect</button>
         </div>
     </div>
 
-    <div id="status-bar">Enter your info and click 'Load Chat' to sync.</div>
+    <!-- Dual Column Main Frame Layout -->
+    <div class="workspace">
+        <div class="gv-sidebar">
+            <div class="sidebar-action-bar">
+                <button onclick="promptNewChat()" class="btn-new-message">+ Send new message</button>
+            </div>
+            <div class="sidebar-header" style="padding:10px 16px; font-size:11px; color:var(--text-sub); font-weight:bold;">Messages</div>
+            <div class="feed-container" id="feedBox"></div>
+        </div>
 
-    <div class="chat-window">
-        <div class="messages-container" id="chatBox"></div>
-        <div class="input-area">
-            <textarea id="msgInput" placeholder="Type a message..." disabled></textarea>
-            <button id="sendBtn" onclick="sendMessage()" disabled>Send</button>
+        <div class="gv-chat-pane" id="chatPane">
+            <div class="empty-placeholder" id="blankScreen">
+                <span style="font-size: 48px;">💬</span>
+                <div>No conversation selected</div>
+            </div>
+            
+            <div class="chat-pane-header" id="paneHeader" style="display:none;">
+                <div class="avatar" id="headerAvatar">#</div>
+                <div class="active-contact-title" id="headerTitle">Line Active</div>
+            </div>
+            
+            <div class="chat-history" id="messageCanvas" style="display:none;"></div>
+            
+            <div class="gv-input-footer" id="footerControls" style="display:none;">
+                <div class="input-area-row">
+                    <div class="input-bar-wrapper">
+                        <textarea id="typingBox" placeholder="Type a message..."></textarea>
+                        <button id="dispatchButton" onclick="submitMessageText()" class="btn-send-svg">➔</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <div id="global-status">System disconnected. Input parameters to initialize pipeline logs.</div>
 
     <script>
-        const proxyUrl = "https://corsproxy.io?";
-        let checkInterval = null;
-        let lastMessageCount = 0;
+        const proxyGateway = "https://corsproxy.io?";
+        let loopTimer = null;
+        let selectedContact = null;
+        let masterRecordsList = [];
+        let searchQuery = "";
 
         window.onload = function() {
-            if(localStorage.getItem('telnyx_apiKey')) {
-                document.getElementById('apiKey').value = localStorage.getItem('telnyx_apiKey');
-                document.getElementById('fromNum').value = localStorage.getItem('telnyx_fromNum');
-                document.getElementById('toNum').value = localStorage.getItem('telnyx_toNum');
-                loadChat();
+            if(localStorage.getItem('gv_telnyx_key')) {
+                document.getElementById('apiKey').value = localStorage.getItem('gv_telnyx_key');
+                document.getElementById('fromNum').value = localStorage.getItem('gv_telnyx_from');
+                connectWorkspace();
             }
         }
 
-        async function loadChat() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const fromNum = document.getElementById('fromNum').value.trim();
-            const toNum = document.getElementById('toNum').value.trim();
+        async function connectWorkspace() {
+            const k = document.getElementById('apiKey').value.trim();
+            const f = document.getElementById('fromNum').value.trim();
+            if(!k || !f) { updateStatusText("Configuration parameters missing."); return; }
 
-            if (!apiKey || !fromNum || !toNum) {
-                updateStatus("All fields are required.");
-                return;
-            }
+            localStorage.setItem('gv_telnyx_key', k);
+            localStorage.setItem('gv_telnyx_from', f);
 
-            localStorage.setItem('telnyx_apiKey', apiKey);
-            localStorage.setItem('telnyx_fromNum', fromNum);
-            localStorage.setItem('telnyx_toNum', toNum);
-
-            document.getElementById('msgInput').disabled = false;
-            document.getElementById('sendBtn').disabled = false;
-            fetchMessages();
-            if (checkInterval) clearInterval(checkInterval);
-            checkInterval = setInterval(fetchMessages, 10000); 
+            updateStatusText("Connecting to network stream logs...");
+            fetchConsoleLogs();
+            if(loopTimer) clearInterval(loopTimer);
+            loopTimer = setInterval(fetchConsoleLogs, 10000);
         }
 
-        function updateStatus(text) { document.getElementById('status-bar').innerText = text; }
+        function updateStatusText(txt) { document.getElementById('global-status').innerText = txt; }
 
-        async function fetchMessages() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const myNum = document.getElementById('fromNum').value.trim();
-            const targetNum = document.getElementById('toNum').value.trim();
-            const targetUrl = `https://telnyx.com[size]=50`;
+        async function fetchConsoleLogs() {
+            const k = document.getElementById('apiKey').value.trim();
+            const endpoint = `https://telnyx.com[size]=100`;
 
             try {
-                const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
+                const res = await fetch(proxyGateway + encodeURIComponent(endpoint), {
                     method: 'GET',
-                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                    headers: { 'Authorization': `Bearer ${k}` }
                 });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    const filtered = data.data.filter(m => 
-                        (m.from === myNum && m.to.to === targetNum) || 
-                        (m.from === targetNum && m.to.to === myNum)
-                    );
-
-                    if (filtered.length === lastMessageCount) {
-                        updateStatus("Connected. Chat up to date.");
-                        return; 
-                    }
-                    lastMessageCount = filtered.length;
-
-                    const chatBox = document.getElementById('chatBox');
-                    chatBox.innerHTML = '';
-
-                    filtered.reverse().forEach(m => {
-                        const isMe = m.from === myNum;
-                        const bubble = document.createElement('div');
-                        bubble.className = `msg-bubble ${isMe ? 'sent' : 'received'}`;
-                        const timeStr = new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                        bubble.innerHTML = `<div>${m.text}</div><div class="msg-time">${timeStr}</div>`;
-                        chatBox.appendChild(bubble);
-                    });
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                    updateStatus("Connected. Monitoring chat live...");
+                if(res.ok) {
+                    const payload = await res.json();
+                    masterRecordsList = payload.data;
+                    renderSidebarFeed();
+                    if(selectedContact) renderConversationCanvas();
+                    updateStatusText("Connected. Sync monitoring synchronized.");
                 }
-            } catch (e) { updateStatus("Error updating messages."); }
+            } catch(e) { updateStatusText("Network synchronization error."); }
         }
 
-        async function sendMessage() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const fromNum = document.getElementById('fromNum').value.trim();
-            const toNum = document.getElementById('toNum').value.trim();
-            const input = document.getElementById('msgInput');
-            if (!input.value.trim()) return;
+        function renderSidebarFeed() {
+            const myNum = document.getElementById('fromNum').value.trim();
+            const container = document.getElementById('feedBox');
+            container.innerHTML = '';
+
+            let map = {};
+            masterRecordsList.forEach(m => {
+                let target = (m.from === myNum) ? m.to.to : m.from;
+                if(!map[target]) {
+                    map[target] = { lastText: m.text, time: m.created_at };
+                }
+            });
+
+            let sortedThreads = Object.keys(map).sort((a, b) => new Date(map[b].time) - new Date(map[a].time));
+
+            if(searchQuery) {
+                sortedThreads = sortedThreads.filter(num => 
+                    num.includes(searchQuery) || map[num].lastText.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+            }
+
+            sortedThreads.forEach(contactNum => {
+                const item = document.createElement('div');
+                item.className = `thread-item ${selectedContact === contactNum ? 'active' : ''}`;
+                item.onclick = () => loadActiveChannel(contactNum);
+
+                const initials = contactNum.replace('+', '').substring(0, 2);
+                const stamp = new Date(map[contactNum].time).toLocaleDateString([], {month:'short', day:'numeric'});
+
+                item.innerHTML = `
+                    <div class="avatar">${initials}</div>
+                    <div class="thread-details">
+                        <div class="thread-meta">
+                            <div class="phone-display">${contactNum}</div>
+                            <div class="timestamp-display">${stamp}</div>
+                        </div>
+                        <div class="preview-snippet">${map[contactNum].lastText}</div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function loadActiveChannel(num) {
+            selectedContact = num;
+            document.getElementById('blankScreen').style.display = 'none';
+            document.getElementById('paneHeader').style.display = 'flex';
+            document.getElementById('messageCanvas').style.display = 'flex';
+            document.getElementById('footerControls').style.display = 'block';
+
+            document.getElementById('headerTitle').innerText = num;
+            document.getElementById('headerAvatar').innerText = num.replace('+', '').substring(0,2);
+
+            renderSidebarFeed();
+            renderConversationCanvas();
+        }
+
+        function renderConversationCanvas() {
+            const myNum = document.getElementById('fromNum').value.trim();
+            const canvas = document.getElementById('messageCanvas');
+            canvas.innerHTML = '';
+
+            const activeTexts = masterRecordsList.filter(m => 
+                (m.from === myNum && m.to.to === selectedContact) || (m.from === selectedContact && m.to.to === myNum)
+            ).reverse();
+
+            activeTexts.forEach(m => {
+                const isSent = m.from === myNum;
+                const row = document.createElement('div');
+                row.className = `message-row ${isSent ? 'row-sent' : 'row-received'}`;
+
+                const clock = new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                row.innerHTML = `<div class="bubble"><div>${m.text}</div><span class="bubble-meta">${clock}</span></div>`;
+                canvas.appendChild(row);
+            });
+            canvas.scrollTop = canvas.scrollHeight;
+        }
+
+        async function submitMessageText() {
+            const k = document.getElementById('apiKey').value.trim();
+            const f = document.getElementById('fromNum').value.trim();
+            const box = document.getElementById('typingBox');
+            const txt = box.value.trim();
+            if(!txt || !selectedContact) return;
 
             try {
-                const response = await fetch(proxyUrl + encodeURIComponent("https://telnyx.com"), {
+                const res = await fetch(proxyGateway + encodeURIComponent("https://telnyx.com"), {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ from: fromNum, to: toNum, text: input.value.trim() })
+                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from: f, to: selectedContact, text: txt })
                 });
-                if (response.ok) { input.value = ''; fetchMessages(); }
-            } catch (e) { updateStatus("Failed to send message."); }
+                if(res.ok) { box.value = ''; fetchConsoleLogs(); }
+            } catch(e) { updateStatusText("Error delivering text package."); }
+        }
+
+        function filterConversations() {
+            searchQuery = document.getElementById('searchBar').value.trim();
+            renderSidebarFeed();
+        }
+
+        function promptNewChat() {
+            const destination = prompt("Enter full destination mobile number (e.g. +12345678901):");
+            if(destination && destination.trim().startsWith('+')) {
+                loadActiveChannel(destination.trim());
+            } else if(destination) {
+                alert("Please match E.164 phone numbering standards containing international country code identifiers (e.g. +1)");
+            }
         }
     </script>
 </body>
