@@ -104,8 +104,8 @@
     <div id="global-status">System ready. Enter fields to sync records.</div>
 
     <script>
-        // Using an open CORS proxy engine that accepts both GET and POST payloads securely
-        const proxyGateway = "https://herokuapp.com";
+        // Calls your own site's secure Netlify URL endpoint to completely bypass cross-origin rules
+        const secureGateway = "/api/messages";
         let loopTimer = null;
         let selectedContact = null;
         let masterRecordsList = [];
@@ -120,19 +120,19 @@
         }
 
         async function connectWorkspace() {
-            updateStatusText("Processing input nodes...");
+            updateStatusText("Processing node attributes...");
             const k = document.getElementById('apiKey').value.trim();
             const f = document.getElementById('fromNum').value.trim();
 
             if(!k || !f) { 
-                updateStatusText("Execution halted: Paste your API Key and Telnyx Number first."); 
+                updateStatusText("Execution halted: Form inputs incomplete."); 
                 return; 
             }
 
             localStorage.setItem('gv_telnyx_key', k);
             localStorage.setItem('gv_telnyx_from', f);
 
-            updateStatusText("Activating secure dual-channel connection engine...");
+            updateStatusText("Connecting to secure Netlify proxy pipeline...");
             fetchConsoleLogs();
             if(loopTimer) clearInterval(loopTimer);
             loopTimer = setInterval(fetchConsoleLogs, 10000);
@@ -144,14 +144,14 @@
 
         async function fetchConsoleLogs() {
             const k = document.getElementById('apiKey').value.trim();
-            const endpoint = `https://telnyx.com[size]=100`;
+            // Call the local route rule instead of an external website URL
+            const queryPath = secureGateway + "?page[size]=100";
 
             try {
-                const res = await fetch(proxyGateway + endpoint, {
+                const res = await fetch(queryPath, {
                     method: 'GET',
                     headers: { 
-                        'Authorization': `Bearer ${k}`,
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'Authorization': `Bearer ${k}`
                     }
                 });
                 
@@ -160,12 +160,12 @@
                     masterRecordsList = payload.data || [];
                     renderSidebarFeed();
                     if(selectedContact) renderConversationCanvas();
-                    updateStatusText("Connected. Workspace tracking active.");
+                    updateStatusText("Connected. Sync logs active.");
                 } else {
-                    updateStatusText("Telnyx Server rejected credentials. Check API token.");
+                    updateStatusText("Telnyx credentials rejected. Check your API key token details.");
                 }
             } catch(e) { 
-                updateStatusText("Temporary connection pause. Syncing parameters..."); 
+                updateStatusText("Connection pipeline synchronizing payload fields..."); 
             }
         }
 
@@ -258,17 +258,13 @@
             if(!txt || !selectedContact) return;
 
             try {
-                const res = await fetch(proxyGateway + "https://telnyx.com", {
+                const res = await fetch(secureGateway, {
                     method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${k}`, 
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
+                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ from: f, to: selectedContact, text: txt })
                 });
                 if(res.ok) { box.value = ''; fetchConsoleLogs(); }
-                else { updateStatusText("Telnyx rejected text transmission payload."); }
+                else { updateStatusText("Telnyx rejected text packet submission."); }
             } catch(e) { updateStatusText("Error delivering text package transaction."); }
         }
 
