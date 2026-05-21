@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telnyx Static Chat Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 15px; background-color: #121212; display: flex; flex-direction: column; height: 90vh; color: #e0e0e0; }
+        .config-pane { background: #1e1e1e; padding: 15px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-bottom: 15px; border: 1px solid #333; }
+        .config-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .config-row input { flex: 1; padding: 8px; border: 1px solid #444; border-radius: 4px; background-color: #2a2a2a; color: #fff; }
+        .config-row input::placeholder { color: #888; }
+        .chat-window { flex: 1; background: #1e1e1e; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #333; }
+        .messages-container { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #0b141a; }
+        .msg-bubble { max-width: 75%; padding: 10px 14px; border-radius: 8px; font-size: 15px; line-height: 1.4; word-wrap: break-word; }
+        .sent { background-color: #005c4b; color: #e9edef; align-self: flex-end; border-top-right-radius: 0; }
+        .received { background-color: #202c33; color: #e9edef; align-self: flex-start; border-top-left-radius: 0; border: 1px solid #313d45; }
+        .msg-time { font-size: 10px; color: #a6b1b7; text-align: right; margin-top: 4px; }
+        .input-area { display: flex; padding: 10px; background: #222e35; gap: 10px; border-top: 1px solid #313d45; }
+        .input-area textarea { flex: 1; padding: 10px; border: 1px solid #444; border-radius: 4px; resize: none; height: 20px; font-family: inherit; background-color: #2a3942; color: #fff; }
+        .input-area button { background: #7D4698; color: white; border: none; padding: 0 20px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        #status-bar { font-size: 12px; text-align: center; color: #aaa; padding: 8px; background: #2a2a2a; border-radius: 4px; margin-bottom: 10px; border: 1px solid #333; }
+    </style>
+</head>
+<body>
+
+    <div class="config-pane">
+        <div class="config-row">
+            <input type="password" id="apiKey" placeholder="Telnyx API Key">
+            <input type="text" id="fromNum" placeholder="Your Telnyx Number (+1...)">
+            <input type="text" id="toNum" placeholder="Recipient Number (+1...)">
+            <button onclick="loadChat()" style="background:#7D4698; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer; font-weight:bold;">Load Chat</button>
+        </div>
+    </div>
+
+    <div id="status-bar">Enter your info and click 'Load Chat' to sync.</div>
+
+    <div class="chat-window">
+        <div class="messages-container" id="chatBox"></div>
+        <div class="input-area">
+            <textarea id="msgInput" placeholder="Type a message..." disabled></textarea>
+            <button id="sendBtn" onclick="sendMessage()" disabled>Send</button>
+        </div>
+    </div>
+
+    <script>
+        const proxyUrl = "https://corsproxy.io?";
+        let checkInterval = null;
+        let lastMessageCount = 0;
+
+        window.onload = function() {
+            if(localStorage.getItem('telnyx_apiKey')) {
+                document.getElementById('apiKey').value = localStorage.getItem('telnyx_apiKey');
+                document.getElementById('fromNum').value = localStorage.getItem('telnyx_fromNum');
+                document.getElementById('toNum').value = localStorage.getItem('telnyx_toNum');
+                loadChat();
+            }
+        }
+
+        async function loadChat() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const fromNum = document.getElementById('fromNum').value.trim();
+            const toNum = document.getElementById('toNum').value.trim();
+
+            if (!apiKey || !fromNum || !toNum) {
+                updateStatus("All fields are required.");
+                return;
+            }
+
+            localStorage.setItem('telnyx_apiKey', apiKey);
+            localStorage.setItem('telnyx_fromNum', fromNum);
+            localStorage.setItem('telnyx_toNum', toNum);
+
+            document.getElementById('msgInput').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            fetchMessages();
+            if (checkInterval) clearInterval(checkInterval);
+            checkInterval = setInterval(fetchMessages, 10000); 
+        }
+
+        function updateStatus(text) { document.getElementById('status-bar').innerText = text; }
+
+        async function fetchMessages() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const myNum = document.getElementById('fromNum').value.trim();
+            const targetNum = document.getElementById('toNum').value.trim();
+            const targetUrl = `https://telnyx.com[size]=50`;
+
+            try {
+                const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    const filtered = data.data.filter(m => 
+                        (m.from === myNum && m.to.to === targetNum) || 
+                        (m.from === targetNum && m.to.to === myNum)
+                    );
+
+                    if (filtered.length === lastMessageCount) {
+                        updateStatus("Connected. Chat up to date.");
+                        return; 
+                    }
+                    lastMessageCount = filtered.length;
+
+                    const chatBox = document.getElementById('chatBox');
+                    chatBox.innerHTML = '';
+
+                    filtered.reverse().forEach(m => {
+                        const isMe = m.from === myNum;
+                        const bubble = document.createElement('div');
+                        bubble.className = `msg-bubble ${isMe ? 'sent' : 'received'}`;
+                        const timeStr = new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        bubble.innerHTML = `<div>${m.text}</div><div class="msg-time">${timeStr}</div>`;
+                        chatBox.appendChild(bubble);
+                    });
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                    updateStatus("Connected. Monitoring chat live...");
+                }
+            } catch (e) { updateStatus("Error updating messages."); }
+        }
+
+        async function sendMessage() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const fromNum = document.getElementById('fromNum').value.trim();
+            const toNum = document.getElementById('toNum').value.trim();
+            const input = document.getElementById('msgInput');
+            if (!input.value.trim()) return;
+
+            try {
+                const response = await fetch(proxyUrl + encodeURIComponent("https://telnyx.com"), {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from: fromNum, to: toNum, text: input.value.trim() })
+                });
+                if (response.ok) { input.value = ''; fetchMessages(); }
+            } catch (e) { updateStatus("Failed to send message."); }
+        }
+    </script>
+</body>
+</html>
