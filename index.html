@@ -22,9 +22,6 @@
         .gv-search-box { flex: 1; max-width: 500px; margin: 0 40px; display: flex; position: relative; }
         .gv-search-box input { width: 100%; padding: 8px 12px 8px 36px; border-radius: 20px; border: 1px solid var(--border); background-color: var(--bg-main); color: #fff; font-size: 14px; }
         .gv-search-box::before { content: "🔍"; position: absolute; left: 12px; top: 8px; font-size: 14px; color: var(--text-sub); }
-        .config-inputs { display: flex; gap: 10px; }
-        .config-inputs input { padding: 6px 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-main); color: #fff; font-size: 13px; }
-        .btn-sync { background: var(--accent); color: #131314; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
         .workspace { display: flex; flex: 1; overflow: hidden; position: relative; }
         .gv-sidebar { width: 320px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
         .sidebar-action-bar { padding: 12px 16px; border-bottom: 1px solid var(--border); }
@@ -57,302 +54,175 @@
         .btn-send-svg { background: transparent; border: none; cursor: pointer; color: var(--accent); font-size: 18px; padding: 0 6px; }
         #global-status { font-size: 11px; text-align: center; color: var(--text-sub); padding: 4px; background: #2a2a2a; border-top: 1px solid var(--border); }
         .empty-placeholder { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; color: var(--text-sub); gap: 10px; }
-        .error-banner { background: #5c1a1a; color: #ffaaaa; padding: 8px; text-align: center; font-size: 12px; margin: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-    <div class="gv-header">
-        <div class="gv-logo-section">💬 Google Voice Console</div>
-        <div class="gv-search-box">
-            <input type="text" id="searchBar" oninput="filterConversations()" placeholder="Search messages or numbers">
+<div class="gv-header">
+    <div class="gv-logo-section">💬 Google Voice Console</div>
+    <div class="gv-search-box">
+        <input type="text" id="searchBar" oninput="filterConversations()" placeholder="Search messages or numbers">
+    </div>
+</div>
+
+<div class="workspace">
+    <div class="gv-sidebar">
+        <div class="sidebar-action-bar">
+            <button onclick="promptNewChat()" class="btn-new-message">+ Send new message</button>
         </div>
-        <div class="config-inputs">
-            <input type="password" id="apiKey" placeholder="Telnyx API Key">
-            <input type="text" id="fromNum" placeholder="Your Telnyx Number">
-            <button onclick="connectWorkspace()" class="btn-sync">Connect</button>
-        </div>
+        <div class="sidebar-header">Messages</div>
+        <div class="feed-container" id="feedBox"></div>
     </div>
 
-    <div class="workspace">
-        <div class="gv-sidebar">
-            <div class="sidebar-action-bar">
-                <button onclick="promptNewChat()" class="btn-new-message">+ Send new message</button>
-            </div>
-            <div class="sidebar-header">Messages</div>
-            <div class="feed-container" id="feedBox"></div>
+    <div class="gv-chat-pane" id="chatPane">
+        <div class="empty-placeholder" id="blankScreen">
+            <span style="font-size: 48px;">💬</span>
+            <div>No conversation selected</div>
         </div>
-
-        <div class="gv-chat-pane" id="chatPane">
-            <div class="empty-placeholder" id="blankScreen">
-                <span style="font-size: 48px;">💬</span>
-                <div>No conversation selected</div>
-            </div>
-            <div class="chat-pane-header" id="paneHeader" style="display:none;">
-                <div class="avatar" id="headerAvatar">#</div>
-                <div class="active-contact-title" id="headerTitle">Line Active</div>
-            </div>
-            <div class="chat-history" id="messageCanvas" style="display:none;"></div>
-            <div class="gv-input-footer" id="footerControls" style="display:none;">
-                <div class="input-bar-wrapper">
-                    <textarea id="typingBox" placeholder="Type a message..."></textarea>
-                    <button id="dispatchButton" onclick="submitMessageText()" class="btn-send-svg">➔</button>
-                </div>
+        <div class="chat-pane-header" id="paneHeader" style="display:none;">
+            <div class="avatar" id="headerAvatar">#</div>
+            <div class="active-contact-title" id="headerTitle">Line Active</div>
+        </div>
+        <div class="chat-history" id="messageCanvas" style="display:none;"></div>
+        <div class="gv-input-footer" id="footerControls" style="display:none;">
+            <div class="input-bar-wrapper">
+                <textarea id="typingBox" placeholder="Type a message..."></textarea>
+                <button onclick="submitMessageText()" class="btn-send-svg">➔</button>
             </div>
         </div>
     </div>
+</div>
 
-    <div id="global-status">System ready. Enter fields to sync records.</div>
+<div id="global-status">Loading messages...</div>
 
-    <script>
-        // DIRECT Telnyx API call - NO proxy needed
-        let loopTimer = null;
-        let selectedContact = null;
-        let masterRecordsList = [];
-        let searchQuery = "";
+<script>
+    const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxNMS5DAnwE9alWajETFl_0q1PUx-eQtHvZjxGyDZjjNhznxYYeWiKFlI8j94QtStYJ/exec';
+    let selectedContact = null;
+    let masterMessages = [];
+    let searchQuery = "";
 
-        window.onload = function() {
-            if(localStorage.getItem('gv_telnyx_key')) {
-                document.getElementById('apiKey').value = localStorage.getItem('gv_telnyx_key');
-                document.getElementById('fromNum').value = localStorage.getItem('gv_telnyx_from');
-                connectWorkspace();
+    async function loadMessages() {
+        try {
+            const response = await fetch(GOOGLE_SHEET_URL);
+            masterMessages = await response.json();
+            updateStatusText(`✅ ${masterMessages.length} messages loaded`);
+            renderSidebar();
+            if (selectedContact) renderConversation();
+        } catch (error) {
+            updateStatusText(`❌ Error: ${error.message}`);
+        }
+    }
+
+    function updateStatusText(text) {
+        document.getElementById('global-status').innerText = text;
+    }
+
+    function renderSidebar() {
+        const myNumber = localStorage.getItem('myNumber') || "";
+        const container = document.getElementById('feedBox');
+        container.innerHTML = '';
+
+        const threads = new Map();
+        masterMessages.forEach(msg => {
+            const otherParty = msg.from === myNumber ? msg.to : msg.from;
+            if (!threads.has(otherParty) || new Date(msg.time) > new Date(threads.get(otherParty).time)) {
+                threads.set(otherParty, { text: msg.text, time: msg.time });
             }
-        }
+        });
 
-        async function connectWorkspace() {
-            const k = document.getElementById('apiKey').value.trim();
-            const f = document.getElementById('fromNum').value.trim();
-
-            if(!k || !f) { 
-                updateStatusText("❌ Need API Key and Phone Number"); 
-                return; 
-            }
-
-            localStorage.setItem('gv_telnyx_key', k);
-            localStorage.setItem('gv_telnyx_from', f);
-
-            updateStatusText("🔄 Fetching messages from Telnyx...");
-            
-            // Clear any existing timer
-            if(loopTimer) clearInterval(loopTimer);
-            
-            // Fetch immediately
-            await fetchConsoleLogs();
-            
-            // Then fetch every 10 seconds
-            loopTimer = setInterval(fetchConsoleLogs, 10000);
-        }
-
-        function updateStatusText(txt) { 
-            document.getElementById('global-status').innerText = txt; 
-        }
-
-        async function fetchConsoleLogs() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const myNumber = document.getElementById('fromNum').value.trim();
-            
-            if (!apiKey || !myNumber) return;
-            
-            try {
-                updateStatusText("📡 Calling Telnyx API...");
-                
-                // Direct API call to Telnyx
-                const response = await fetch('/.netlify/functions/messages?page[size]=100', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
-                }
-                
-                const data = await response.json();
-                masterRecordsList = data.data || [];
-                
-                updateStatusText(`✅ Loaded ${masterRecordsList.length} messages from Telnyx`);
-                
-                if (masterRecordsList.length === 0) {
-                    updateStatusText("⚠️ No messages found. Send a test message first.");
-                }
-                
-                renderSidebarFeed();
-                if (selectedContact) renderConversationCanvas();
-                
-            } catch (error) {
-                console.error("Telnyx API Error:", error);
-                updateStatusText(`❌ Error: ${error.message}`);
-                
-                // Show helpful error in the UI
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'error-banner';
-                errorDiv.innerHTML = `⚠️ Cannot reach Telnyx API. This is a CORS error. You need to add a Netlify function proxy. <br> Error: ${error.message}`;
-                
-                const existingError = document.querySelector('.error-banner');
-                if (!existingError && document.getElementById('feedBox').children.length === 0) {
-                    document.getElementById('feedBox').appendChild(errorDiv);
-                    setTimeout(() => errorDiv.remove(), 8000);
-                }
-            }
-        }
-
-        function renderSidebarFeed() {
-            const myNum = document.getElementById('fromNum').value.trim();
-            const container = document.getElementById('feedBox');
-            container.innerHTML = '';
-
-            let map = {};
-            masterRecordsList.forEach(m => {
-                if(!m.to || !m.to) return;
-                let target = (m.from === myNum) ? m.to : m.from;
-                if(!target) return;
-                if(!map[target]) {
-                    map[target] = { lastText: m.attributes?.text || m.text || "", time: m.attributes?.received_at || m.created_at };
-                }
-            });
-
-            let sortedThreads = Object.keys(map).sort((a, b) => new Date(map[b].time) - new Date(map[a].time));
-
-            if(searchQuery) {
-                sortedThreads = sortedThreads.filter(num => 
-                    num.includes(searchQuery) || map[num].lastText.toLowerCase().includes(searchQuery.toLowerCase())
-                );
-            }
-
-            if (sortedThreads.length === 0 && masterRecordsList.length > 0) {
-                container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-sub)">No conversations found</div>';
-            }
-
-            sortedThreads.forEach(contactNum => {
-                const item = document.createElement('div');
-                item.className = `thread-item ${selectedContact === contactNum ? 'active' : ''}`;
-                item.onclick = () => loadActiveChannel(contactNum);
-
-                const initials = contactNum.replace('+', '').substring(0, 2);
-                const stamp = new Date(map[contactNum].time).toLocaleDateString([], {month:'short', day:'numeric'});
-
-                item.innerHTML = `
-                    <div class="avatar">${initials}</div>
-                    <div class="thread-details">
-                        <div class="thread-meta">
-                            <div class="phone-display">${contactNum}</div>
-                            <div class="timestamp-display">${stamp}</div>
-                        </div>
-                        <div class="preview-snippet">${escapeHtml(map[contactNum].lastText)}</div>
-                    </div>
-                `;
-                container.appendChild(item);
-            });
-        }
-
-        function loadActiveChannel(num) {
-            selectedContact = num;
-            document.getElementById('blankScreen').style.display = 'none';
-            document.getElementById('paneHeader').style.display = 'flex';
-            document.getElementById('messageCanvas').style.display = 'flex';
-            document.getElementById('footerControls').style.display = 'block';
-
-            document.getElementById('headerTitle').innerText = num;
-            document.getElementById('headerAvatar').innerText = num.replace('+', '').substring(0,2);
-
-            renderSidebarFeed();
-            renderConversationCanvas();
-        }
-
-        function renderConversationCanvas() {
-            const myNum = document.getElementById('fromNum').value.trim();
-            const canvas = document.getElementById('messageCanvas');
-            canvas.innerHTML = '';
-
-            const activeTexts = masterRecordsList.filter(m => {
-                const from = m.from || m.attributes?.from;
-                const to = m.to || m.attributes?.to;
-                if(!from || !to) return false;
-                return (from === myNum && to === selectedContact) || (from === selectedContact && to === myNum);
-            }).reverse();
-
-            if (activeTexts.length === 0) {
-                canvas.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-sub)">No messages yet</div>';
-                return;
-            }
-
-            activeTexts.forEach(m => {
-                const isSent = (m.from || m.attributes?.from) === myNum;
-                const row = document.createElement('div');
-                row.className = `message-row ${isSent ? 'row-sent' : 'row-received'}`;
-
-                const text = m.attributes?.text || m.text;
-                const time = m.attributes?.received_at || m.created_at;
-                const clock = new Date(time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                
-                row.innerHTML = `<div class="bubble"><div>${escapeHtml(text)}</div><span class="bubble-meta">${clock}</span></div>`;
-                canvas.appendChild(row);
-            });
-            canvas.scrollTop = canvas.scrollHeight;
-        }
-
-        async function submitMessageText() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const fromNum = document.getElementById('fromNum').value.trim();
-            const box = document.getElementById('typingBox');
-            const txt = box.value.trim();
-            
-            if(!txt || !selectedContact) {
-                updateStatusText("❌ Type a message and select a conversation");
-                return;
-            }
-
-            try {
-                updateStatusText("📤 Sending message...");
-                
-                const response = await fetch('/.netlify/functions/messages', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        from: fromNum, 
-                        to: selectedContact, 
-                        text: txt 
-                    })
-                });
-                
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
-                box.value = '';
-                updateStatusText("✅ Message sent!");
-                await fetchConsoleLogs(); // Refresh messages
-                
-            } catch(error) {
-                console.error("Send error:", error);
-                updateStatusText(`❌ Send failed: ${error.message}`);
-            }
-        }
-
-        function filterConversations() {
-            searchQuery = document.getElementById('searchBar').value.trim();
-            renderSidebarFeed();
-        }
-
-        function promptNewChat() {
-            const destination = prompt("Enter full destination mobile number (e.g. +12345678901):");
-            if(destination && destination.trim().startsWith('+')) {
-                loadActiveChannel(destination.trim());
-            } else if(destination) {
-                alert("Please use E.164 format with country code (e.g., +1 for US)");
-            }
-        }
+        const sorted = Array.from(threads.keys()).sort((a,b) => new Date(threads.get(b).time) - new Date(threads.get(a).time));
         
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        sorted.forEach(contact => {
+            const data = threads.get(contact);
+            const item = document.createElement('div');
+            item.className = `thread-item ${selectedContact === contact ? 'active' : ''}`;
+            item.onclick = () => selectContact(contact);
+            item.innerHTML = `
+                <div class="avatar">${contact.slice(0,2)}</div>
+                <div class="thread-details">
+                    <div class="thread-meta">
+                        <div class="phone-display">${contact}</div>
+                        <div class="timestamp-display">${new Date(data.time).toLocaleDateString()}</div>
+                    </div>
+                    <div class="preview-snippet">${escapeHtml(data.text)}</div>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    function selectContact(contact) {
+        selectedContact = contact;
+        document.getElementById('blankScreen').style.display = 'none';
+        document.getElementById('paneHeader').style.display = 'flex';
+        document.getElementById('messageCanvas').style.display = 'flex';
+        document.getElementById('footerControls').style.display = 'block';
+        document.getElementById('headerTitle').innerText = contact;
+        renderConversation();
+        renderSidebar();
+    }
+
+    function renderConversation() {
+        const myNumber = localStorage.getItem('myNumber') || "";
+        const canvas = document.getElementById('messageCanvas');
+        canvas.innerHTML = '';
+        
+        const conversation = masterMessages.filter(msg => 
+            (msg.from === myNumber && msg.to === selectedContact) || 
+            (msg.from === selectedContact && msg.to === myNumber)
+        ).sort((a,b) => new Date(a.time) - new Date(b.time));
+        
+        conversation.forEach(msg => {
+            const isSent = msg.from === myNumber;
+            const row = document.createElement('div');
+            row.className = `message-row ${isSent ? 'row-sent' : 'row-received'}`;
+            row.innerHTML = `<div class="bubble">${escapeHtml(msg.text)}<span class="bubble-meta">${new Date(msg.time).toLocaleTimeString()}</span></div>`;
+            canvas.appendChild(row);
+        });
+        canvas.scrollTop = canvas.scrollHeight;
+    }
+
+    async function submitMessageText() {
+        const txt = document.getElementById('typingBox').value.trim();
+        if (!txt || !selectedContact) return;
+        
+        // For now, just show in UI (actual sending requires Telnyx API)
+        const tempMsg = {
+            from: localStorage.getItem('myNumber'),
+            to: selectedContact,
+            text: txt,
+            time: new Date().toISOString()
+        };
+        masterMessages.push(tempMsg);
+        renderConversation();
+        document.getElementById('typingBox').value = '';
+        
+        // TODO: Add API call to send via Telnyx
+        updateStatusText("Message saved locally. Sending via Telnyx requires API setup.");
+    }
+
+    function promptNewChat() {
+        const num = prompt("Enter phone number (E.164 format, e.g., +1234567890):");
+        if (num && num.startsWith('+')) {
+            localStorage.setItem('myNumber', num);
+            selectContact(num);
         }
-    </script>
+    }
+
+    function filterConversations() {
+        // Simple filter for now
+        renderSidebar();
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Load messages every 30 seconds
+    loadMessages();
+    setInterval(loadMessages, 30000);
+</script>
 </body>
 </html>
