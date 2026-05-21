@@ -99,45 +99,49 @@
     const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbynQg4jmWKvr7p0vCBKQQdhuFk8Fbg3IakLwlY9f5G9qiRbk6Y28nn7zAtlSylZH3of/exec';
     let selectedContact = null;
     let masterMessages = [];
-    let searchQuery = "";
 
     async function loadMessages() {
         try {
             const response = await fetch(GOOGLE_SHEET_URL);
             masterMessages = await response.json();
-            updateStatusText(`✅ ${masterMessages.length} messages loaded`);
+            document.getElementById('global-status').innerText = `✅ ${masterMessages.length} messages loaded`;
             renderSidebar();
             if (selectedContact) renderConversation();
         } catch (error) {
-            updateStatusText(`❌ Error: ${error.message}`);
+            document.getElementById('global-status').innerText = `❌ Error: ${error.message}`;
         }
-    }
-
-    function updateStatusText(text) {
-        document.getElementById('global-status').innerText = text;
     }
 
     function renderSidebar() {
         const container = document.getElementById('feedBox');
         container.innerHTML = '';
-
+        
+        // Group by phone number
         const threads = new Map();
         masterMessages.forEach(msg => {
-            const otherParty = msg.from === msg.to ? msg.from : (msg.from !== msg.to ? msg.from : msg.to);
             const contact = msg.from;
             if (!threads.has(contact) || new Date(msg.time) > new Date(threads.get(contact).time)) {
                 threads.set(contact, { text: msg.text, time: msg.time });
             }
         });
-
+        
         const sorted = Array.from(threads.keys()).sort((a,b) => new Date(threads.get(b).time) - new Date(threads.get(a).time));
         
         sorted.forEach(contact => {
             const data = threads.get(contact);
-            const item = document.createElement('div');
-            item.className = `thread-item ${selectedContact === contact ? 'active' : ''}`;
-            item.onclick = () => selectContact(contact);
-            item.innerHTML = `
+            const div = document.createElement('div');
+            div.className = `thread-item ${selectedContact === contact ? 'active' : ''}`;
+            div.onclick = () => {
+                selectedContact = contact;
+                document.getElementById('blankScreen').style.display = 'none';
+                document.getElementById('paneHeader').style.display = 'flex';
+                document.getElementById('messageCanvas').style.display = 'flex';
+                document.getElementById('footerControls').style.display = 'block';
+                document.getElementById('headerTitle').innerText = contact;
+                renderConversation();
+                renderSidebar();
+            };
+            div.innerHTML = `
                 <div class="avatar">${String(contact).slice(0,2)}</div>
                 <div class="thread-details">
                     <div class="thread-meta">
@@ -147,19 +151,8 @@
                     <div class="preview-snippet">${escapeHtml(data.text)}</div>
                 </div>
             `;
-            container.appendChild(item);
+            container.appendChild(div);
         });
-    }
-
-    function selectContact(contact) {
-        selectedContact = contact;
-        document.getElementById('blankScreen').style.display = 'none';
-        document.getElementById('paneHeader').style.display = 'flex';
-        document.getElementById('messageCanvas').style.display = 'flex';
-        document.getElementById('footerControls').style.display = 'block';
-        document.getElementById('headerTitle').innerText = contact;
-        renderConversation();
-        renderSidebar();
     }
 
     function renderConversation() {
@@ -169,11 +162,6 @@
         const conversation = masterMessages.filter(msg => 
             msg.from === selectedContact || msg.to === selectedContact
         ).sort((a,b) => new Date(a.time) - new Date(b.time));
-        
-        if (conversation.length === 0) {
-            canvas.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-sub)">No messages yet</div>';
-            return;
-        }
         
         conversation.forEach(msg => {
             const isSent = msg.from === selectedContact;
@@ -185,26 +173,31 @@
         canvas.scrollTop = canvas.scrollHeight;
     }
 
-    async function submitMessageText() {
+    function submitMessageText() {
         const txt = document.getElementById('typingBox').value.trim();
         if (!txt || !selectedContact) return;
         
-        const tempMsg = {
+        // Add to UI (actual sending needs Telnyx API)
+        masterMessages.push({
             from: selectedContact,
             to: selectedContact,
             text: txt,
             time: new Date().toISOString()
-        };
-        masterMessages.push(tempMsg);
+        });
         renderConversation();
         document.getElementById('typingBox').value = '';
-        updateStatusText("Message saved locally. Sending via Telnyx requires API setup.");
     }
 
     function promptNewChat() {
         const num = prompt("Enter phone number (E.164 format, e.g., +1234567890):");
         if (num && num.startsWith('+')) {
-            selectContact(num);
+            selectedContact = num;
+            document.getElementById('blankScreen').style.display = 'none';
+            document.getElementById('paneHeader').style.display = 'flex';
+            document.getElementById('messageCanvas').style.display = 'flex';
+            document.getElementById('footerControls').style.display = 'block';
+            document.getElementById('headerTitle').innerText = num;
+            renderSidebar();
         }
     }
 
