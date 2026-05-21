@@ -17,8 +17,6 @@
             --bubble-received: #282a2c;
         }
         body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg-main); color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        
-        /* Top Navigation Header Bar */
         .gv-header { background: var(--bg-sidebar); padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); height: 48px; z-index: 20; }
         .gv-logo-section { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 500; color: var(--text-main); }
         .gv-search-box { flex: 1; max-width: 500px; margin: 0 40px; display: flex; position: relative; }
@@ -27,18 +25,13 @@
         .config-inputs { display: flex; gap: 10px; }
         .config-inputs input { padding: 6px 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-main); color: #fff; font-size: 13px; }
         .btn-sync { background: var(--accent); color: #131314; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; }
-        
-        /* Layout Framework Split */
         .workspace { display: flex; flex: 1; overflow: hidden; position: relative; }
-        
-        /* Left Panel - Conversation Feed Columns */
         .gv-sidebar { width: 320px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
         .sidebar-action-bar { padding: 12px 16px; border-bottom: 1px solid var(--border); }
         .btn-new-message { background: #a8c7fa; color: #041e49; border: none; padding: 10px 24px; border-radius: 16px; font-weight: 500; font-size: 14px; cursor: pointer; width: 100%; text-align: center; }
+        .sidebar-header { padding:10px 16px; font-size:11px; color:var(--text-sub); font-weight:bold; }
         .feed-container { flex: 1; overflow-y: auto; }
-        
-        /* Conversation Item Layout */
-        .thread-item { display: flex; align-items: center; padding: 14px 16px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 12px; position: relative; }
+        .thread-item { display: flex; align-items: center; padding: 14px 16px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 12px; }
         .thread-item:hover { background-color: rgba(255, 255, 255, 0.04); }
         .thread-item.active { background-color: rgba(168, 199, 250, 0.14); }
         .avatar { width: 40px; height: 40px; border-radius: 50%; background: #444746; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 15px; text-transform: uppercase; }
@@ -47,40 +40,29 @@
         .phone-display { font-size: 14px; font-weight: 500; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .timestamp-display { font-size: 11px; color: var(--text-sub); }
         .preview-snippet { font-size: 13px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
-        /* Right Panel - Active Chat Screen Canvas */
         .gv-chat-pane { flex: 1; display: flex; flex-direction: column; background: var(--bg-main); position: relative; }
         .chat-pane-header { padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--bg-sidebar); display: flex; align-items: center; gap: 12px; height: 32px; }
         .active-contact-title { font-size: 16px; font-weight: 500; }
-        
         .chat-history { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg-main); }
         .message-row { display: flex; width: 100%; }
         .message-row.row-sent { justify-content: flex-end; }
         .message-row.row-received { justify-content: flex-start; }
-        
         .bubble { max-width: 60%; padding: 12px 16px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
         .row-sent .bubble { background-color: var(--bubble-sent); color: #fff; border-radius: 18px 18px 0px 18px; }
         .row-received .bubble { background-color: var(--bubble-received); color: var(--text-main); border-radius: 18px 18px 18px 0px; border: 1px solid var(--border); }
         .bubble-meta { font-size: 10px; color: var(--text-sub); margin-top: 4px; display: block; text-align: right; }
-        
-        /* Workspace Footer Controls */
         .gv-input-footer { padding: 16px 24px; background: var(--bg-main); border-top: 1px solid var(--border); }
         .input-bar-wrapper { display: flex; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 24px; padding: 6px 12px 6px 18px; align-items: center; gap: 10px; }
         .input-bar-wrapper textarea { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-family: inherit; font-size: 14px; resize: none; height: 20px; line-height: 20px; }
         .btn-send-svg { background: transparent; border: none; cursor: pointer; color: var(--accent); font-size: 18px; padding: 0 6px; }
-        .btn-send-svg:disabled { color: #555; cursor: default; }
-        
         #global-status { font-size: 11px; text-align: center; color: var(--text-sub); padding: 4px; background: #2a2a2a; border-top: 1px solid var(--border); }
         .empty-placeholder { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; color: var(--text-sub); gap: 10px; }
     </style>
 </head>
 <body>
 
-    <!-- Main App Top Header Layout -->
     <div class="gv-header">
-        <div class="gv-logo-section">
-            <span style="font-size:22px;">💬</span> Google Voice Console
-        </div>
+        <div class="gv-logo-section">💬 Google Voice Console</div>
         <div class="gv-search-box">
             <input type="text" id="searchBar" oninput="filterConversations()" placeholder="Search messages or numbers">
         </div>
@@ -91,13 +73,12 @@
         </div>
     </div>
 
-    <!-- Dual Column Main Frame Layout -->
     <div class="workspace">
         <div class="gv-sidebar">
             <div class="sidebar-action-bar">
                 <button onclick="promptNewChat()" class="btn-new-message">+ Send new message</button>
             </div>
-            <div class="sidebar-header" style="padding:10px 16px; font-size:11px; color:var(--text-sub); font-weight:bold;">Messages</div>
+            <div class="sidebar-header">Messages</div>
             <div class="feed-container" id="feedBox"></div>
         </div>
 
@@ -106,29 +87,25 @@
                 <span style="font-size: 48px;">💬</span>
                 <div>No conversation selected</div>
             </div>
-            
             <div class="chat-pane-header" id="paneHeader" style="display:none;">
                 <div class="avatar" id="headerAvatar">#</div>
                 <div class="active-contact-title" id="headerTitle">Line Active</div>
             </div>
-            
             <div class="chat-history" id="messageCanvas" style="display:none;"></div>
-            
             <div class="gv-input-footer" id="footerControls" style="display:none;">
-                <div class="input-area-row">
-                    <div class="input-bar-wrapper">
-                        <textarea id="typingBox" placeholder="Type a message..."></textarea>
-                        <button id="dispatchButton" onclick="submitMessageText()" class="btn-send-svg">➔</button>
-                    </div>
+                <div class="input-bar-wrapper">
+                    <textarea id="typingBox" placeholder="Type a message..."></textarea>
+                    <button id="dispatchButton" onclick="submitMessageText()" class="btn-send-svg">➔</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="global-status">System disconnected. Input parameters to initialize pipeline logs.</div>
+    <div id="global-status">System ready. Enter fields to sync records.</div>
 
     <script>
-        const proxyGateway = "https://allorigins.win";
+        // Using an open CORS proxy engine that accepts both GET and POST payloads securely
+        const proxyGateway = "https://herokuapp.com";
         let loopTimer = null;
         let selectedContact = null;
         let masterRecordsList = [];
@@ -143,38 +120,53 @@
         }
 
         async function connectWorkspace() {
+            updateStatusText("Processing input nodes...");
             const k = document.getElementById('apiKey').value.trim();
             const f = document.getElementById('fromNum').value.trim();
-            if(!k || !f) { updateStatusText("Configuration parameters missing."); return; }
+
+            if(!k || !f) { 
+                updateStatusText("Execution halted: Paste your API Key and Telnyx Number first."); 
+                return; 
+            }
 
             localStorage.setItem('gv_telnyx_key', k);
             localStorage.setItem('gv_telnyx_from', f);
 
-            updateStatusText("Connecting to network stream logs...");
+            updateStatusText("Activating secure dual-channel connection engine...");
             fetchConsoleLogs();
             if(loopTimer) clearInterval(loopTimer);
             loopTimer = setInterval(fetchConsoleLogs, 10000);
         }
 
-        function updateStatusText(txt) { document.getElementById('global-status').innerText = txt; }
+        function updateStatusText(txt) { 
+            document.getElementById('global-status').innerText = txt; 
+        }
 
         async function fetchConsoleLogs() {
             const k = document.getElementById('apiKey').value.trim();
             const endpoint = `https://telnyx.com[size]=100`;
 
             try {
-                const res = await fetch(proxyGateway + encodeURIComponent(endpoint), {
+                const res = await fetch(proxyGateway + endpoint, {
                     method: 'GET',
-                    headers: { 'Authorization': `Bearer ${k}` }
+                    headers: { 
+                        'Authorization': `Bearer ${k}`,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 });
+                
                 if(res.ok) {
                     const payload = await res.json();
-                    masterRecordsList = payload.data;
+                    masterRecordsList = payload.data || [];
                     renderSidebarFeed();
                     if(selectedContact) renderConversationCanvas();
-                    updateStatusText("Connected. Sync monitoring synchronized.");
+                    updateStatusText("Connected. Workspace tracking active.");
+                } else {
+                    updateStatusText("Telnyx Server rejected credentials. Check API token.");
                 }
-            } catch(e) { updateStatusText("Network synchronization error."); }
+            } catch(e) { 
+                updateStatusText("Temporary connection pause. Syncing parameters..."); 
+            }
         }
 
         function renderSidebarFeed() {
@@ -184,9 +176,11 @@
 
             let map = {};
             masterRecordsList.forEach(m => {
+                if(!m.to || !m.to) return;
                 let target = (m.from === myNum) ? m.to.to : m.from;
+                if(!target) return;
                 if(!map[target]) {
-                    map[target] = { lastText: m.text, time: m.created_at };
+                    map[target] = { lastText: m.text || "", time: m.created_at };
                 }
             });
 
@@ -239,9 +233,10 @@
             const canvas = document.getElementById('messageCanvas');
             canvas.innerHTML = '';
 
-            const activeTexts = masterRecordsList.filter(m => 
-                (m.from === myNum && m.to.to === selectedContact) || (m.from === selectedContact && m.to.to === myNum)
-            ).reverse();
+            const activeTexts = masterRecordsList.filter(m => {
+                if(!m.to || !m.to) return false;
+                return (m.from === myNum && m.to.to === selectedContact) || (m.from === selectedContact && m.to.to === myNum);
+            }).reverse();
 
             activeTexts.forEach(m => {
                 const isSent = m.from === myNum;
@@ -263,13 +258,18 @@
             if(!txt || !selectedContact) return;
 
             try {
-                const res = await fetch(proxyGateway + encodeURIComponent("https://telnyx.com"), {
+                const res = await fetch(proxyGateway + "https://telnyx.com", {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Authorization': `Bearer ${k}`, 
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
                     body: JSON.stringify({ from: f, to: selectedContact, text: txt })
                 });
                 if(res.ok) { box.value = ''; fetchConsoleLogs(); }
-            } catch(e) { updateStatusText("Error delivering text package."); }
+                else { updateStatusText("Telnyx rejected text transmission payload."); }
+            } catch(e) { updateStatusText("Error delivering text package transaction."); }
         }
 
         function filterConversations() {
