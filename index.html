@@ -118,15 +118,15 @@
     }
 
     function renderSidebar() {
-        const myNumber = localStorage.getItem('myNumber') || "";
         const container = document.getElementById('feedBox');
         container.innerHTML = '';
 
         const threads = new Map();
         masterMessages.forEach(msg => {
-            const otherParty = msg.from === myNumber ? msg.to : msg.from;
-            if (!threads.has(otherParty) || new Date(msg.time) > new Date(threads.get(otherParty).time)) {
-                threads.set(otherParty, { text: msg.text, time: msg.time });
+            const otherParty = msg.from === msg.to ? msg.from : (msg.from !== msg.to ? msg.from : msg.to);
+            const contact = msg.from;
+            if (!threads.has(contact) || new Date(msg.time) > new Date(threads.get(contact).time)) {
+                threads.set(contact, { text: msg.text, time: msg.time });
             }
         });
 
@@ -163,17 +163,20 @@
     }
 
     function renderConversation() {
-        const myNumber = localStorage.getItem('myNumber') || "";
         const canvas = document.getElementById('messageCanvas');
         canvas.innerHTML = '';
         
         const conversation = masterMessages.filter(msg => 
-            (msg.from === myNumber && msg.to === selectedContact) || 
-            (msg.from === selectedContact && msg.to === myNumber)
+            msg.from === selectedContact || msg.to === selectedContact
         ).sort((a,b) => new Date(a.time) - new Date(b.time));
         
+        if (conversation.length === 0) {
+            canvas.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-sub)">No messages yet</div>';
+            return;
+        }
+        
         conversation.forEach(msg => {
-            const isSent = msg.from === myNumber;
+            const isSent = msg.from === selectedContact;
             const row = document.createElement('div');
             row.className = `message-row ${isSent ? 'row-sent' : 'row-received'}`;
             row.innerHTML = `<div class="bubble">${escapeHtml(msg.text)}<span class="bubble-meta">${new Date(msg.time).toLocaleTimeString()}</span></div>`;
@@ -186,9 +189,8 @@
         const txt = document.getElementById('typingBox').value.trim();
         if (!txt || !selectedContact) return;
         
-        // For now, just show in UI (actual sending requires Telnyx API)
         const tempMsg = {
-            from: localStorage.getItem('myNumber'),
+            from: selectedContact,
             to: selectedContact,
             text: txt,
             time: new Date().toISOString()
@@ -196,21 +198,17 @@
         masterMessages.push(tempMsg);
         renderConversation();
         document.getElementById('typingBox').value = '';
-        
-        // TODO: Add API call to send via Telnyx
         updateStatusText("Message saved locally. Sending via Telnyx requires API setup.");
     }
 
     function promptNewChat() {
         const num = prompt("Enter phone number (E.164 format, e.g., +1234567890):");
         if (num && num.startsWith('+')) {
-            localStorage.setItem('myNumber', num);
             selectContact(num);
         }
     }
 
     function filterConversations() {
-        // Simple filter for now
         renderSidebar();
     }
 
@@ -220,7 +218,6 @@
         return div.innerHTML;
     }
 
-    // Load messages every 30 seconds
     loadMessages();
     setInterval(loadMessages, 30000);
 </script>
