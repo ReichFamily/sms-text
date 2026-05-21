@@ -57,6 +57,7 @@
         .btn-send-svg { background: transparent; border: none; cursor: pointer; color: var(--accent); font-size: 18px; padding: 0 6px; }
         #global-status { font-size: 11px; text-align: center; color: var(--text-sub); padding: 4px; background: #2a2a2a; border-top: 1px solid var(--border); }
         .empty-placeholder { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; color: var(--text-sub); gap: 10px; }
+        .error-banner { background: #5c1a1a; color: #ffaaaa; padding: 8px; text-align: center; font-size: 12px; margin: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -104,8 +105,7 @@
     <div id="global-status">System ready. Enter fields to sync records.</div>
 
     <script>
-        // Calls your own site's secure Netlify URL endpoint to completely bypass cross-origin rules
-        const secureGateway = "/api/messages";
+        // DIRECT Telnyx API call - NO proxy needed
         let loopTimer = null;
         let selectedContact = null;
         let masterRecordsList = [];
@@ -120,21 +120,26 @@
         }
 
         async function connectWorkspace() {
-            updateStatusText("Processing node attributes...");
             const k = document.getElementById('apiKey').value.trim();
             const f = document.getElementById('fromNum').value.trim();
 
             if(!k || !f) { 
-                updateStatusText("Execution halted: Form inputs incomplete."); 
+                updateStatusText("❌ Need API Key and Phone Number"); 
                 return; 
             }
 
             localStorage.setItem('gv_telnyx_key', k);
             localStorage.setItem('gv_telnyx_from', f);
 
-            updateStatusText("Connecting to secure Netlify proxy pipeline...");
-            fetchConsoleLogs();
+            updateStatusText("🔄 Fetching messages from Telnyx...");
+            
+            // Clear any existing timer
             if(loopTimer) clearInterval(loopTimer);
+            
+            // Fetch immediately
+            await fetchConsoleLogs();
+            
+            // Then fetch every 10 seconds
             loopTimer = setInterval(fetchConsoleLogs, 10000);
         }
 
@@ -143,29 +148,54 @@
         }
 
         async function fetchConsoleLogs() {
-            const k = document.getElementById('apiKey').value.trim();
-            // Call the local route rule instead of an external website URL
-            const queryPath = secureGateway + "?page[size]=100";
-
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const myNumber = document.getElementById('fromNum').value.trim();
+            
+            if (!apiKey || !myNumber) return;
+            
             try {
-                const res = await fetch(queryPath, {
+                updateStatusText("📡 Calling Telnyx API...");
+                
+                // Direct API call to Telnyx
+                const response = await fetch('https://api.telnyx.com/v2/messages?page[size]=100', {
                     method: 'GET',
-                    headers: { 
-                        'Authorization': `Bearer ${k}`
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
                     }
                 });
                 
-                if(res.ok) {
-                    const payload = await res.json();
-                    masterRecordsList = payload.data || [];
-                    renderSidebarFeed();
-                    if(selectedContact) renderConversationCanvas();
-                    updateStatusText("Connected. Sync logs active.");
-                } else {
-                    updateStatusText("Telnyx credentials rejected. Check your API key token details.");
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
                 }
-            } catch(e) { 
-                updateStatusText("Connection pipeline synchronizing payload fields..."); 
+                
+                const data = await response.json();
+                masterRecordsList = data.data || [];
+                
+                updateStatusText(`✅ Loaded ${masterRecordsList.length} messages from Telnyx`);
+                
+                if (masterRecordsList.length === 0) {
+                    updateStatusText("⚠️ No messages found. Send a test message first.");
+                }
+                
+                renderSidebarFeed();
+                if (selectedContact) renderConversationCanvas();
+                
+            } catch (error) {
+                console.error("Telnyx API Error:", error);
+                updateStatusText(`❌ Error: ${error.message}`);
+                
+                // Show helpful error in the UI
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-banner';
+                errorDiv.innerHTML = `⚠️ Cannot reach Telnyx API. This is a CORS error. You need to add a Netlify function proxy. <br> Error: ${error.message}`;
+                
+                const existingError = document.querySelector('.error-banner');
+                if (!existingError && document.getElementById('feedBox').children.length === 0) {
+                    document.getElementById('feedBox').appendChild(errorDiv);
+                    setTimeout(() => errorDiv.remove(), 8000);
+                }
             }
         }
 
@@ -177,10 +207,10 @@
             let map = {};
             masterRecordsList.forEach(m => {
                 if(!m.to || !m.to) return;
-                let target = (m.from === myNum) ? m.to.to : m.from;
+                let target = (m.from === myNum) ? m.to : m.from;
                 if(!target) return;
                 if(!map[target]) {
-                    map[target] = { lastText: m.text || "", time: m.created_at };
+                    map[target] = { lastText: m.attributes?.text || m.text || "", time: m.attributes?.received_at || m.created_at };
                 }
             });
 
@@ -190,6 +220,10 @@
                 sortedThreads = sortedThreads.filter(num => 
                     num.includes(searchQuery) || map[num].lastText.toLowerCase().includes(searchQuery.toLowerCase())
                 );
+            }
+
+            if (sortedThreads.length === 0 && masterRecordsList.length > 0) {
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-sub)">No conversations found</div>';
             }
 
             sortedThreads.forEach(contactNum => {
@@ -207,7 +241,7 @@
                             <div class="phone-display">${contactNum}</div>
                             <div class="timestamp-display">${stamp}</div>
                         </div>
-                        <div class="preview-snippet">${map[contactNum].lastText}</div>
+                        <div class="preview-snippet">${escapeHtml(map[contactNum].lastText)}</div>
                     </div>
                 `;
                 container.appendChild(item);
@@ -234,38 +268,69 @@
             canvas.innerHTML = '';
 
             const activeTexts = masterRecordsList.filter(m => {
-                if(!m.to || !m.to) return false;
-                return (m.from === myNum && m.to.to === selectedContact) || (m.from === selectedContact && m.to.to === myNum);
+                const from = m.from || m.attributes?.from;
+                const to = m.to || m.attributes?.to;
+                if(!from || !to) return false;
+                return (from === myNum && to === selectedContact) || (from === selectedContact && to === myNum);
             }).reverse();
 
+            if (activeTexts.length === 0) {
+                canvas.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-sub)">No messages yet</div>';
+                return;
+            }
+
             activeTexts.forEach(m => {
-                const isSent = m.from === myNum;
+                const isSent = (m.from || m.attributes?.from) === myNum;
                 const row = document.createElement('div');
                 row.className = `message-row ${isSent ? 'row-sent' : 'row-received'}`;
 
-                const clock = new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                row.innerHTML = `<div class="bubble"><div>${m.text}</div><span class="bubble-meta">${clock}</span></div>`;
+                const text = m.attributes?.text || m.text;
+                const time = m.attributes?.received_at || m.created_at;
+                const clock = new Date(time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                row.innerHTML = `<div class="bubble"><div>${escapeHtml(text)}</div><span class="bubble-meta">${clock}</span></div>`;
                 canvas.appendChild(row);
             });
             canvas.scrollTop = canvas.scrollHeight;
         }
 
         async function submitMessageText() {
-            const k = document.getElementById('apiKey').value.trim();
-            const f = document.getElementById('fromNum').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const fromNum = document.getElementById('fromNum').value.trim();
             const box = document.getElementById('typingBox');
             const txt = box.value.trim();
-            if(!txt || !selectedContact) return;
+            
+            if(!txt || !selectedContact) {
+                updateStatusText("❌ Type a message and select a conversation");
+                return;
+            }
 
             try {
-                const res = await fetch(secureGateway, {
+                updateStatusText("📤 Sending message...");
+                
+                const response = await fetch('https://api.telnyx.com/v2/messages', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${k}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ from: f, to: selectedContact, text: txt })
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        from: fromNum, 
+                        to: selectedContact, 
+                        text: txt 
+                    })
                 });
-                if(res.ok) { box.value = ''; fetchConsoleLogs(); }
-                else { updateStatusText("Telnyx rejected text packet submission."); }
-            } catch(e) { updateStatusText("Error delivering text package transaction."); }
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                box.value = '';
+                updateStatusText("✅ Message sent!");
+                await fetchConsoleLogs(); // Refresh messages
+                
+            } catch(error) {
+                console.error("Send error:", error);
+                updateStatusText(`❌ Send failed: ${error.message}`);
+            }
         }
 
         function filterConversations() {
@@ -278,8 +343,15 @@
             if(destination && destination.trim().startsWith('+')) {
                 loadActiveChannel(destination.trim());
             } else if(destination) {
-                alert("Please match E.164 phone numbering standards containing international country code identifiers (e.g. +1)");
+                alert("Please use E.164 format with country code (e.g., +1 for US)");
             }
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     </script>
 </body>
